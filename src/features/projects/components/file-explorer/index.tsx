@@ -33,17 +33,19 @@ export const FileExplorer = ({ projectId }: { projectId: Id<"projects"> }) => {
 
   const createFile = useCreateFile();
   const createFolder = useCreateFolder();
-  const handleCreate = (name: string) => {
-    setCreating(null);
+  const handleCreate = async (name: string) => {
+    if (!creating) return;
 
     if (creating === "file") {
-      createFile({ projectId, name, content: "", parentId: undefined });
-    } else {
-      createFolder({
-        projectId,
-        name,
-        parentId: undefined,
-      });
+      await createFile({ projectId, name, content: "", parentId: undefined });
+      setCreating(null);
+      return;
+    }
+
+    if (creating === "folder") {
+      await createFolder({ projectId, name, parentId: undefined });
+      setCreating(null);
+      return;
     }
   };
 
@@ -62,7 +64,7 @@ export const FileExplorer = ({ projectId }: { projectId: Id<"projects"> }) => {
             )}
           />
           <p className="text-xs uppercase line-clamp-1">{project?.name}</p>
-          <div className="opacity-0 group-hover/project:opacity-100 transiction-none duration-0 flex items-center gap-0.5 ml-auto">
+          <div className="opacity-0 group-hover/project:opacity-100 transition-none duration-0 flex items-center gap-0.5 ml-auto">
             <Button
               onClick={(e) => {
                 e.stopPropagation();

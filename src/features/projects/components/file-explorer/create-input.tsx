@@ -27,7 +27,7 @@ export const CreateInput = ({
 
   return (
     <div
-      className="w-full flex items-center gap-1 h-5.5 bg-accent/30]"
+      className="w-full flex items-center gap-1 h-5.5 bg-accent/30"
       style={{ paddingLeft: getItemPadding(level, type === "file") }}
     >
       <div className="flex items-center gap-0.5">

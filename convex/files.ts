@@ -329,6 +329,10 @@ export const updateFile = mutation({
       throw new Error("Unauthorized access to this file");
     }
 
+    if (file.type !== "file") {
+      throw new Error("Cannot update content of a folder");
+    }
+
     const now = Date.now();
 
     await ctx.db.patch("files", args.id, {
