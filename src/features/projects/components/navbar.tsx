@@ -54,9 +54,10 @@ export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
     renameProject({ id: projectId, name: trimmedName });
   };
 
-  const handleKeydown = (e: React.KeyboardEvent) => {
+  const handleKeydown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      handleSubmit();
+      e.preventDefault();
+      e.currentTarget.blur();
     } else if (e.key === "Escape") {
       setIsRenaming(false);
     }
@@ -94,6 +95,14 @@ export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
               ) : (
                 <BreadcrumbPage
                   onClick={handleStartRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleStartRename();
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
                   className="text-sm cursor-pointer hover:text-primary font-medium max-w-40 truncate"
                 >
                   {project?.name ?? "Loading"}
@@ -102,12 +111,12 @@ export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        {project?.importStatus === "importing" ? (
+        {!project ? null : project.importStatus === "importing" ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <LoaderIcon className="size-4 text-muted-foreground animate-spin" />
             </TooltipTrigger>
-            <TooltipContent>Importing project...</TooltipContent>
+            <TooltipContent>Importing project…</TooltipContent>
           </Tooltip>
         ) : (
           <Tooltip>

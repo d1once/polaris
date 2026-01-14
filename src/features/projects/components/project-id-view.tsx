@@ -30,7 +30,7 @@ const Tab = ({
 export const ProjectIdView = ({ projectId }: { projectId: Id<"projects"> }) => {
   const [activeView, setActiveView] = useState<"editor" | "preview">("editor");
   return (
-    <div className="h-ful flex flex-col ">
+    <div className="h-full flex flex-col">
       <nav className="h-8.75 flex items-center bg-sidebar border-b">
         <Tab
           label="Code"
