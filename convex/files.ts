@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { verifyAuth } from "./auth";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 
 export const getFiles = query({
   args: { projectId: v.id("projects") },
@@ -47,6 +47,70 @@ export const getFile = query({
     }
 
     return file;
+  },
+});
+
+/**
+ * Builds the full path to a file by traversing up the parent chain.
+ *
+ * Input:  A file ID (e.g., the ID of "button.tsx")
+ * Output: Array of ancestors from root to file: [{ _id, name: "src" }, { _id, name: "components" }, { _id, name: "button.tsx" }]
+ *
+ * Used for: Breadcrumbs navigation (src > components > button.tsx)
+ */
+export const getFilePath = query({
+  args: { id: v.id("files") },
+  handler: async (ctx, args) => {
+    const identity = await verifyAuth(ctx);
+
+    const file = await ctx.db.get("files", args.id);
+
+    if (!file) {
+      throw new Error("File not found");
+    }
+
+    const project = await ctx.db.get("projects", file.projectId);
+
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    if (project.ownerId !== identity.subject) {
+      throw new Error("Unauthorized to access this project");
+    }
+
+    const path: { _id: string; name: string }[] = [];
+    let currentId: Id<"files"> | undefined = args.id;
+    const visitedIds = new Set<Id<"files">>();
+    const maxDepth = 100;
+    let depth = 0;
+
+    while (currentId) {
+      // Cycle detection: check if we've already visited this ID
+      if (visitedIds.has(currentId)) {
+        throw new Error("Circular parent reference detected in file hierarchy");
+      }
+
+      // Depth limit check
+      if (depth >= maxDepth) {
+        throw new Error(
+          `Maximum path depth (${maxDepth}) exceeded - possible circular reference`
+        );
+      }
+
+      visitedIds.add(currentId);
+      depth++;
+
+      const file = (await ctx.db.get("files", currentId)) as
+        | Doc<"files">
+        | undefined;
+      if (!file) break;
+
+      path.unshift({ _id: file._id, name: file.name });
+      currentId = file.parentId;
+    }
+
+    return path;
   },
 });
 
