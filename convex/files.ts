@@ -81,8 +81,26 @@ export const getFilePath = query({
 
     const path: { _id: string; name: string }[] = [];
     let currentId: Id<"files"> | undefined = args.id;
+    const visitedIds = new Set<Id<"files">>();
+    const maxDepth = 100;
+    let depth = 0;
 
     while (currentId) {
+      // Cycle detection: check if we've already visited this ID
+      if (visitedIds.has(currentId)) {
+        throw new Error("Circular parent reference detected in file hierarchy");
+      }
+
+      // Depth limit check
+      if (depth >= maxDepth) {
+        throw new Error(
+          `Maximum path depth (${maxDepth}) exceeded - possible circular reference`
+        );
+      }
+
+      visitedIds.add(currentId);
+      depth++;
+
       const file = (await ctx.db.get("files", currentId)) as
         | Doc<"files">
         | undefined;
