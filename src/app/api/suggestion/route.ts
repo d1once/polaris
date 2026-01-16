@@ -43,6 +43,22 @@ Follow these steps IN ORDER:
 Your suggestion is inserted immediately after the cursor, so never suggest code that's already in the file.
 </instructions>`;
 
+/**
+ * Single-pass template renderer that prevents template injection.
+ * Scans the template once and substitutes placeholders from a safe values map.
+ * User-controlled values cannot be reinterpreted as placeholders.
+ */
+const renderTemplate = (
+  template: string,
+  values: Record<string, string>
+): string => {
+  return template.replace(/\{([^}]+)\}/g, (match, key) => {
+    return Object.prototype.hasOwnProperty.call(values, key)
+      ? values[key]
+      : match;
+  });
+};
+
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();
@@ -66,14 +82,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Code is required" }, { status: 400 });
     }
 
-    const prompt = SUGGESTION_PROMPT.replace("{fileName}", fileName)
-      .replace("{code}", code)
-      .replace("{currentLine}", currentLine)
-      .replace("{previousLines}", previousLines || "")
-      .replace("{textBeforeCursor}", textBeforeCursor)
-      .replace("{textAfterCursor}", textAfterCursor)
-      .replace("{nextLines}", nextLines || "")
-      .replace("{lineNumber}", lineNumber.toString());
+    const prompt = renderTemplate(SUGGESTION_PROMPT, {
+      fileName,
+      code,
+      currentLine,
+      previousLines: previousLines || "",
+      textBeforeCursor,
+      textAfterCursor,
+      nextLines: nextLines || "",
+      lineNumber: lineNumber.toString(),
+    });
 
     const { output } = await generateText({
       model: anthropic("claude-haiku-4-5-20251001"),
@@ -81,7 +99,7 @@ export async function POST(request: Request) {
       prompt,
     });
 
-    return NextResponse.json({ suggestion: output.suggestion });
+    return NextResponse.json({ suggestion: output?.suggestion ?? "" });
   } catch (error) {
     console.error("Suggestion error: ", error);
     return NextResponse.json(

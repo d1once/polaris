@@ -23,6 +23,10 @@ const suggestionState = StateField.define<string | null>({
     return null;
   },
   update(value, transaction) {
+    // Clear suggestion on doc changes to avoid stale ghost text
+    if (transaction.docChanged) {
+      return null;
+    }
     // Check each effect in this transaction
     // If we find our setSuggestionEffect, return its new value
     // Otherwise, keep the current value unchanged
@@ -120,16 +124,36 @@ const createDebouncePlugin = (fileName: string) => {
             view.dispatch({ effects: setSuggestionEffect.of(null) });
             return;
           }
-          currentAbortController = new AbortController();
-          const suggestion = await fetcher(
-            payload,
-            currentAbortController.signal
-          );
 
-          isWaitingForSuggestion = false;
-          view.dispatch({
-            effects: setSuggestionEffect.of(suggestion),
-          });
+          currentAbortController = new AbortController();
+
+          try {
+            const suggestion = await fetcher(
+              payload,
+              currentAbortController.signal
+            );
+
+            view.dispatch({
+              effects: setSuggestionEffect.of(suggestion),
+            });
+          } catch (error) {
+            // Handle AbortError gracefully - just clear the suggestion
+            if (
+              error instanceof Error &&
+              (error.name === "AbortError" ||
+                currentAbortController?.signal.aborted)
+            ) {
+              view.dispatch({ effects: setSuggestionEffect.of(null) });
+              return;
+            }
+
+            // Log other unexpected errors
+            console.error("Suggestion fetch error:", error);
+            view.dispatch({ effects: setSuggestionEffect.of(null) });
+          } finally {
+            isWaitingForSuggestion = false;
+            currentAbortController = null;
+          }
         }, DEBOUNCE_DELAY);
       }
 

@@ -106,31 +106,39 @@ const createQuickEditTooltip = (state: EditorState): readonly Tooltip[] => {
           submitButton.textContent = "Editing...";
 
           currentAbortController = new AbortController();
-          const editedCode = await fetcher(
-            {
-              selectedCode,
-              fullCode,
-              instruction,
-            },
-            currentAbortController.signal
-          );
-
-          if (editedCode) {
-            editorView.dispatch({
-              changes: {
-                from: selection.from,
-                to: selection.to,
-                insert: editedCode,
+          try {
+            const editedCode = await fetcher(
+              {
+                selectedCode,
+                fullCode,
+                instruction,
               },
-              selection: { anchor: selection.from + editedCode.length },
-              effects: showQuickEditEffect.of(false),
-            });
-          } else {
+              currentAbortController.signal
+            );
+
+            if (editedCode) {
+              editorView.dispatch({
+                changes: {
+                  from: selection.from,
+                  to: selection.to,
+                  insert: editedCode,
+                },
+                selection: { anchor: selection.from + editedCode.length },
+                effects: showQuickEditEffect.of(false),
+              });
+            } else {
+              submitButton.disabled = false;
+              submitButton.textContent = "Submit";
+            }
+          } catch (error) {
+            if (error instanceof Error && error.name !== "AbortError") {
+              console.error("Quick edit failed:", error);
+            }
             submitButton.disabled = false;
             submitButton.textContent = "Submit";
+          } finally {
+            currentAbortController = null;
           }
-
-          currentAbortController = null;
         };
 
         buttonContainer.appendChild(cancelButton);

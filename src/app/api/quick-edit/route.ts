@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const { selectedCode, fullCode, instruction } = await request.json();
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 400 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!selectedCode) {
@@ -104,6 +104,13 @@ export async function POST(request: Request) {
       output: Output.object({ schema: quickEditSchema }),
       prompt,
     });
+
+    if (!output?.editedCode) {
+      return NextResponse.json(
+        { error: "Failed to generate valid edit" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ editedCode: output.editedCode });
   } catch (error) {
