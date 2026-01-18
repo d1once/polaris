@@ -60,7 +60,7 @@ export const FileExplorer = ({ projectId }: { projectId: Id<"projects"> }) => {
           <ChevronRightIcon
             className={cn(
               "size-4 shrink-0 text-muted-foreground",
-              isOpen && "rotate-90"
+              isOpen && "rotate-90",
             )}
           />
           <p className="text-xs uppercase line-clamp-1">{project?.name}</p>
@@ -72,7 +72,7 @@ export const FileExplorer = ({ projectId }: { projectId: Id<"projects"> }) => {
                 setIsOpen(true);
                 setCreating("file");
               }}
-              variant="highLight"
+              variant="highlight"
               size="icon-xs"
             >
               <FilePlusCornerIcon className="size-3.5" />
@@ -84,7 +84,7 @@ export const FileExplorer = ({ projectId }: { projectId: Id<"projects"> }) => {
                 setIsOpen(true);
                 setCreating("folder");
               }}
-              variant="highLight"
+              variant="highlight"
               size="icon-xs"
             >
               <FolderPlusIcon className="size-3.5" />
@@ -95,7 +95,7 @@ export const FileExplorer = ({ projectId }: { projectId: Id<"projects"> }) => {
                 e.preventDefault();
                 setCollapseKey((value) => value + 1);
               }}
-              variant="highLight"
+              variant="highlight"
               size="icon-xs"
             >
               <CopyMinusIcon className="size-3.5" />
