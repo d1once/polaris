@@ -100,11 +100,10 @@ export const ConversationSidebar = ({
           message: message.text,
         },
       });
+      setInput("");
     } catch {
       toast.error("Message failed to send");
     }
-
-    setInput("");
   };
 
   return (

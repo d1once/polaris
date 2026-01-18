@@ -44,6 +44,11 @@ export const createMessage = mutation({
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
 
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
     const messageId = await ctx.db.insert("messages", {
       conversationId: args.conversationId,
       projectId: args.projectId,
