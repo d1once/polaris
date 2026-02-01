@@ -26,7 +26,7 @@ export const useCreateProject = () => {
           _id: crypto.randomUUID() as Id<"projects">,
           _creationTime: now,
           name: args.name,
-          ownerId: "anonymouse",
+          ownerId: "anonymous",
           updatedAt: now,
         };
         localStorage.setQuery(api.projects.get, {}, [
@@ -34,7 +34,7 @@ export const useCreateProject = () => {
           ...existingProjects,
         ]);
       }
-    }
+    },
   );
 };
 
@@ -49,7 +49,7 @@ export const useRenameProject = () => {
         localStorage.setQuery(
           api.projects.getById,
           { id: args.id },
-          { ...existingProject, name: args.name, updatedAt: Date.now() }
+          { ...existingProject, name: args.name, updatedAt: Date.now() },
         );
       }
       const existingProjects = localStorage.getQuery(api.projects.get);
@@ -62,9 +62,9 @@ export const useRenameProject = () => {
             return project._id === args.id
               ? { ...project, name: args.name, updatedAt: Date.now() }
               : project;
-          })
+          }),
         );
       }
-    }
+    },
   );
 };

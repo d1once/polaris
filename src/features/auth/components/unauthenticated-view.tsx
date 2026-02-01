@@ -1,7 +1,11 @@
 import { ShieldAlertIcon } from "lucide-react";
+// 1. Add these missing imports
+import { SignInButton } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
 
 import {
   Item,
+  ItemActions, // 2. Add this import
   ItemContent,
   ItemDescription,
   ItemMedia,
@@ -22,6 +26,13 @@ export const UnauthenticatedView = () => {
               You must be signed in to view this resource.
             </ItemDescription>
           </ItemContent>
+          <ItemActions>
+            <SignInButton>
+              <Button variant="outline" size="sm">
+                Sign in
+              </Button>
+            </SignInButton>
+          </ItemActions>
         </Item>
       </div>
     </div>
