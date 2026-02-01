@@ -10,7 +10,7 @@ const quickEditSchema = z.object({
   editedCode: z
     .string()
     .describe(
-      "The edited version of the selected code based on the instruction"
+      "The edited version of the selected code based on the instruction",
     ),
 });
 
@@ -52,14 +52,14 @@ export async function POST(request: Request) {
     if (!selectedCode) {
       return NextResponse.json(
         { error: "Selected code is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!instruction) {
       return NextResponse.json(
         { error: "Instruction is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -82,14 +82,14 @@ export async function POST(request: Request) {
           } catch {
             return null;
           }
-        })
+        }),
       );
 
       const validResults = scrapedResults.filter(Boolean);
 
       if (validResults.length > 0) {
         documentationContext = `<documentation>\n${validResults.join(
-          "\n\n"
+          "\n\n",
         )}\n</documentation>`;
       }
     }
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     if (!output?.editedCode) {
       return NextResponse.json(
         { error: "Failed to generate valid edit" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
     console.error("Edit error:", error);
     return NextResponse.json(
       { error: "Failed to generate edit" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
