@@ -1,5 +1,5 @@
-import { success, z } from "zod";
-import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import { inngest } from "@/inngest/client";
@@ -17,8 +17,21 @@ export async function POST(request: Request) {
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const body = await request.json();
-  const { projectId } = requestSchema.parse(body);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = requestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const { projectId } = parsed.data;
 
   const internalKey = process.env.POLARIS_INTERNAL_KEY;
   if (!internalKey) {
@@ -26,6 +39,17 @@ export async function POST(request: Request) {
       { error: "Internal key not found" },
       { status: 500 },
     );
+  }
+
+  // Verify user has access to the project
+  const ownership = await convex.query(api.system.verifyProjectOwnership, {
+    internalKey,
+    projectId: projectId as Id<"projects">,
+    userId,
+  });
+
+  if (!ownership.authorized) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   // Find all processing messages in this project
@@ -41,28 +65,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, cancelled: false });
   }
 
-  // Cancel all processing messages
-  const cancelledIds = await Promise.all(
+  // Cancel all processing messages with per-message error handling
+  const results = await Promise.allSettled(
     processingMessages.map(async (msg) => {
+      // Update status first to prevent race conditions
+      await convex.mutation(api.system.updateMessageStatus, {
+        internalKey,
+        messageId: msg._id,
+        status: "cancelled",
+      });
       await inngest.send({
         name: "messages/cancel",
         data: {
           messageId: msg._id,
         },
       });
-      await convex.mutation(api.system.updateMessageStatus, {
-        internalKey,
-        messageId: msg._id,
-        status: "cancelled",
-      });
-
       return msg._id;
     }),
   );
 
+  const cancelledIds: string[] = [];
+  const failedResults: { messageId: string; error: string }[] = [];
+
+  results.forEach((result, i) => {
+    const messageId = processingMessages[i]._id;
+    if (result.status === "fulfilled") {
+      cancelledIds.push(result.value);
+    } else {
+      failedResults.push({
+        messageId,
+        error:
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+      });
+    }
+  });
+
   return NextResponse.json({
-    success: true,
-    cancelled: true,
-    messageIds: cancelledIds,
+    success: failedResults.length === 0,
+    cancelled: cancelledIds.length > 0,
+    cancelledIds,
+    failedIds: failedResults,
   });
 }

@@ -53,7 +53,7 @@ export function PastConversationsDialog({
                 handleSelect(conversation._id);
               }}
             >
-              <div className="flex flex-col gap-0 5">
+              <div className="flex flex-col gap-0.5">
                 <span>{conversation.title}</span>
                 <span className="text-xs text-muted-foreground">
                   {formatDistanceToNow(conversation._creationTime, {

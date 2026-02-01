@@ -14,6 +14,30 @@ const validateInternalKey = (key: string) => {
   }
 };
 
+// Used to verify project ownership from API routes
+export const verifyProjectOwnership = query({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const project = await ctx.db.get(args.projectId);
+
+    if (!project) {
+      return { authorized: false, reason: "not_found" } as const;
+    }
+
+    if (project.ownerId !== args.userId) {
+      return { authorized: false, reason: "not_owner" } as const;
+    }
+
+    return { authorized: true } as const;
+  },
+});
+
 export const getConversationById = query({
   args: {
     conversationId: v.id("conversations"),
@@ -275,16 +299,30 @@ export const createFiles = mutation({
       .collect();
 
     const results: { name: string; fileId: string; error?: string }[] = [];
+    // Track files inserted during this batch to detect duplicates within args.files
+    const insertedMap: Record<string, string> = {};
 
     for (const file of args.files) {
-      const existing = existingFiles.find(
+      // Check if file already exists in DB
+      const existingInDb = existingFiles.find(
         (f) => f.name === file.name && f.type === "file",
       );
-      if (existing) {
+      if (existingInDb) {
         results.push({
           name: file.name,
-          fileId: existing._id,
+          fileId: existingInDb._id,
           error: "File already exists",
+        });
+        continue;
+      }
+
+      // Check if file was already inserted in this batch
+      const insertedId = insertedMap[file.name];
+      if (insertedId) {
+        results.push({
+          name: file.name,
+          fileId: insertedId,
+          error: "Duplicate entry in batch",
         });
         continue;
       }
@@ -297,6 +335,10 @@ export const createFiles = mutation({
         type: "file",
         updatedAt: Date.now(),
       });
+
+      // Track this insert for subsequent duplicate detection
+      insertedMap[file.name] = fileId;
+
       results.push({
         name: file.name,
         fileId: fileId,

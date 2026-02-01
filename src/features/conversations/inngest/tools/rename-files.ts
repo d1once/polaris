@@ -34,10 +34,15 @@ export const createRenameFileTool = ({
       const { fileId, newName } = parsed.data;
 
       // Validate file exists before running the step
-      const file = await convex.query(api.system.getFileById, {
-        internalKey,
-        fileId: fileId as Id<"files">,
-      });
+      let file;
+      try {
+        file = await convex.query(api.system.getFileById, {
+          internalKey,
+          fileId: fileId as Id<"files">,
+        });
+      } catch (error) {
+        return `Error checking file: ${error instanceof Error ? error.message : "Unknown error"}`;
+      }
 
       if (!file) {
         return `Error: File with ID "${fileId}" not found. Use listFiles to get valid file IDs.`;

@@ -57,9 +57,16 @@ export async function POST(request: Request) {
   );
 
   if (processingMessages.length > 0) {
-    // Cancel all processing messages
-    await Promise.all(
+    // Cancel all processing messages - use allSettled to avoid blocking on individual failures
+    const cancelResults = await Promise.allSettled(
       processingMessages.map(async (msg) => {
+        // Update status first to prevent race conditions
+        await convex.mutation(api.system.updateMessageStatus, {
+          internalKey,
+          messageId: msg._id,
+          status: "cancelled",
+        });
+
         await inngest.send({
           name: "message/cancel",
           data: {
@@ -67,13 +74,21 @@ export async function POST(request: Request) {
           },
         });
 
-        await convex.mutation(api.system.updateMessageStatus, {
-          internalKey,
-          messageId: msg._id,
-          status: "cancelled",
-        });
+        return msg._id;
       }),
     );
+
+    // Log any individual cancellation failures (don't block the request)
+    cancelResults.forEach((result, i) => {
+      if (result.status === "rejected") {
+        console.error(
+          `Failed to cancel message ${processingMessages[i]._id}:`,
+          result.reason instanceof Error
+            ? result.reason.message
+            : result.reason,
+        );
+      }
+    });
   }
 
   // Create user message

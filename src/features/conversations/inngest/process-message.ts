@@ -101,7 +101,7 @@ export const processMessage = inngest.createFunction(
     // Add conversation history to system prompt
     if (contextMessages.length > 0) {
       const historyText = contextMessages
-        .map((msg) => `${msg.role.toUpperCase}: ${msg.content}`)
+        .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
         .join("\n\n");
       systemPrompt += `\n\n## Previous Conversation (for context only - do NOT repeat these responses):\n${historyText}\n\n## Current Request:\nRespond ONLY to the user's new message below. Do not repeat or reference your previous responses.`;
     }
@@ -209,7 +209,7 @@ export const processMessage = inngest.createFunction(
           : textMessage.content.map((c) => c.text).join("");
     }
 
-    // Update the assistant message wit hthe response (this also sets status to completed)
+    // Update the assistant message with the response (this also sets status to completed)
     await step.run("update-assistant-message", async () => {
       await convex.mutation(api.system.updateMessageContent, {
         internalKey,

@@ -1,11 +1,10 @@
 import { ShieldAlertIcon } from "lucide-react";
-// 1. Add these missing imports
 import { SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 
 import {
   Item,
-  ItemActions, // 2. Add this import
+  ItemActions,
   ItemContent,
   ItemDescription,
   ItemMedia,

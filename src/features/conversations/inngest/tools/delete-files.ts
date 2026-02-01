@@ -43,21 +43,25 @@ export const createDeleteFilesTool = ({
         type: string;
       }[] = [];
 
-      for (const fileId of fileIds) {
-        const file = await convex.query(api.system.getFileById, {
-          internalKey,
-          fileId: fileId as Id<"files">,
-        });
+      try {
+        for (const fileId of fileIds) {
+          const file = await convex.query(api.system.getFileById, {
+            internalKey,
+            fileId: fileId as Id<"files">,
+          });
 
-        if (!file) {
-          return `Error: File with ID "${fileId}" not found. Use listFiles to get valid file IDs.`;
+          if (!file) {
+            return `Error: File with ID "${fileId}" not found. Use listFiles to get valid file IDs.`;
+          }
+
+          filesToDelete.push({
+            id: file._id,
+            name: file.name,
+            type: file.type,
+          });
         }
-
-        filesToDelete.push({
-          id: file._id,
-          name: file.name,
-          type: file.type,
-        });
+      } catch (error) {
+        return `Error validating files: ${error instanceof Error ? error.message : "Unknown error"}`;
       }
 
       try {
