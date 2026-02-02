@@ -14,8 +14,15 @@ export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
   const getPath = (file: FileDoc): string[] => {
     const parts: string[] = [file.name];
     let parentId = file.parentId;
+    const visitedIds = new Set<string>();
 
     while (parentId) {
+      // Cycle detection: stop if we've seen this parent before
+      if (visitedIds.has(parentId)) {
+        break;
+      }
+      visitedIds.add(parentId);
+
       const parent = filesMap.get(parentId);
       if (!parent) break;
       parts.unshift(parent.name);
@@ -37,10 +44,8 @@ export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
         if (file.type === "folder") {
           if (!current[part]) {
             current[part] = { directory: {} };
-          } else if ("directory" in current[part]) {
-            // Node exists with directory - preserve it
-            current[part].directory = current[part].directory || {};
           }
+          // If current[part] already exists, preserve it as-is
         } else if (!file.storageId && file.content !== undefined) {
           current[part] = { file: { contents: file.content } };
         }
