@@ -7,6 +7,7 @@ import { FaGithub } from "react-icons/fa";
 import { Allotment } from "allotment";
 import { FileExplorer } from "./file-explorer";
 import { EditorView } from "@/features/editor/components/editor-view";
+import { PreviewView } from "./preview-view";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
@@ -27,7 +28,7 @@ const Tab = ({
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 h-full px-3 cursor-pointer text-muted-foreground border-r hover:bg-accent/30",
-        isActive && "bg-background text-foreground"
+        isActive && "bg-background text-foreground",
       )}
     >
       <span className="text-sm">{label}</span>
@@ -61,7 +62,7 @@ export const ProjectIdView = ({ projectId }: { projectId: Id<"projects"> }) => {
         <div
           className={cn(
             "absolute inset-0",
-            activeView === "editor" ? "visible" : "invisible"
+            activeView === "editor" ? "visible" : "invisible",
           )}
         >
           <Allotment defaultSizes={[DEFAULT_SIDEBAR_WIDTH, DEFAULT_MAIN_SIZE]}>
@@ -81,10 +82,10 @@ export const ProjectIdView = ({ projectId }: { projectId: Id<"projects"> }) => {
         <div
           className={cn(
             "absolute inset-0",
-            activeView === "preview" ? "visible" : "invisible"
+            activeView === "preview" ? "visible" : "invisible",
           )}
         >
-          <div>Preview</div>
+          <PreviewView projectId={projectId} />
         </div>
       </div>
     </div>
