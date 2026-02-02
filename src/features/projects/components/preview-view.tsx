@@ -16,17 +16,23 @@ import { PreviewTerminal } from "@/features/preview/components/preview-terminal"
 import { Button } from "@/components/ui/button";
 
 import { useProject } from "../hooks/use-projects";
+import { useHasProcessingMessages } from "@/features/conversations/hooks/use-conversations";
 
 import { Id } from "../../../../convex/_generated/dataModel";
 
 export const PreviewView = ({ projectId }: { projectId: Id<"projects"> }) => {
   const project = useProject(projectId);
   const [showTerminal, setShowTerminal] = useState(true);
+  const isProcessing = useHasProcessingMessages(projectId);
+
+  // Don't start WebContainer while AI is generating files or query is still loading
+  // isProcessing === false means we've confirmed no processing messages exist
+  const containerEnabled = isProcessing === false;
 
   const { status, previewUrl, error, restart, terminalOutput } =
     useWebContainer({
       projectId,
-      enabled: true,
+      enabled: containerEnabled,
       settings: project?.settings,
     });
 
@@ -54,7 +60,21 @@ export const PreviewView = ({ projectId }: { projectId: Id<"projects"> }) => {
             </div>
           )}
           {previewUrl && <span className="truncate">{previewUrl}</span>}
-          {!isLoading && !previewUrl && !error && <span>Ready to preview</span>}
+          {isProcessing === undefined && !previewUrl && !isLoading && (
+            <div className="flex items-center gap-1.5">
+              <Loader2Icon className="size-3 animate-spin" />
+              Loading...
+            </div>
+          )}
+          {isProcessing === true && (
+            <div className="flex items-center gap-1.5">
+              <Loader2Icon className="size-3 animate-spin" />
+              Waiting for AI to finish...
+            </div>
+          )}
+          {isProcessing === false && !isLoading && !previewUrl && !error && (
+            <span>Ready to preview</span>
+          )}
         </div>
 
         <Button
@@ -89,7 +109,30 @@ export const PreviewView = ({ projectId }: { projectId: Id<"projects"> }) => {
               </div>
             )}
 
-            {isLoading && !error && (
+            {isProcessing === undefined && !error && (
+              <div className="size-full flex items-center justify-center text-muted-foreground">
+                <div className="flex flex-col items-center gap-2 max-w-md mx-auto text-center">
+                  <Loader2Icon className="size-6 animate-spin" />
+                  <p className="text-sm font-medium">Loading...</p>
+                </div>
+              </div>
+            )}
+
+            {isProcessing === true && !error && (
+              <div className="size-full flex items-center justify-center text-muted-foreground">
+                <div className="flex flex-col items-center gap-2 max-w-md mx-auto text-center">
+                  <Loader2Icon className="size-6 animate-spin" />
+                  <p className="text-sm font-medium">
+                    Waiting for AI to finish generating files...
+                  </p>
+                  <p className="text-xs">
+                    Preview will start automatically when ready
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isLoading && !error && isProcessing === false && (
               <div className="size-full flex items-center justify-center text-muted-foreground">
                 <div className="flex flex-col items-center gap-2 max-w-md mx-auto text-center">
                   <Loader2Icon className="size-6 animate-spin" />

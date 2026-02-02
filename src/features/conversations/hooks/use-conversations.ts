@@ -22,3 +22,10 @@ export const useCreateConversation = () => {
   return useMutation(api.conversations.create);
   // TODO: Add optimistic mutation
 };
+
+export const useHasProcessingMessages = (projectId: Id<"projects"> | null) => {
+  return useQuery(
+    api.conversations.hasProcessingMessages,
+    projectId ? { projectId } : "skip",
+  );
+};

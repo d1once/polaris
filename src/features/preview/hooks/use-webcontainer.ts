@@ -3,20 +3,31 @@ import { WebContainer } from "@webcontainer/api";
 
 import { buildFileTree, getFilePath } from "../utils/file-tree";
 
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useFiles } from "@/features/projects/hooks/use-files";
 
-// Singleton WebContainer instance
+// Singleton WebContainer instance - persists across component remounts
 let webcontainerInstance: WebContainer | null = null;
-let bootPromise: Promise<WebContainer> | undefined = undefined;
+let bootPromise: Promise<WebContainer> | null = null;
+let hasBootedOnce = false;
 
 const getWebContainer = async (): Promise<WebContainer> => {
+  // If we already have an instance, return it
   if (webcontainerInstance) {
     return webcontainerInstance;
   }
 
+  // If boot has already been attempted and failed, throw immediately
+  // WebContainer only allows one boot() call per page
+  if (hasBootedOnce && !webcontainerInstance) {
+    throw new Error(
+      "WebContainer boot previously failed. Please refresh the page to try again.",
+    );
+  }
+
+  // Start boot if not already in progress
   if (!bootPromise) {
+    hasBootedOnce = true;
     bootPromise = WebContainer.boot({ coep: "credentialless" });
   }
 
@@ -24,17 +35,9 @@ const getWebContainer = async (): Promise<WebContainer> => {
     webcontainerInstance = await bootPromise;
     return webcontainerInstance;
   } catch (error) {
-    bootPromise = undefined;
+    // Don't reset bootPromise - WebContainer won't allow another boot anyway
     throw error;
   }
-};
-
-const teardownWebContainer = () => {
-  if (webcontainerInstance) {
-    webcontainerInstance.teardown();
-    webcontainerInstance = null;
-  }
-  bootPromise = undefined;
 };
 
 interface UseWebContainerProps {
@@ -57,14 +60,15 @@ export const useWebContainer = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [restartKey, setRestartKey] = useState(0);
-  const [terminalOutput, setTerimnalOutput] = useState("");
+  const [terminalOutput, setTerminalOutput] = useState("");
 
   const containerRef = useRef<WebContainer | null>(null);
   const hasStartedRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const files = useFiles(projectId);
 
-  // Initial boot mount
+  // Main effect for booting and running the container
   useEffect(() => {
     if (!enabled || !files || files.length === 0 || hasStartedRef.current) {
       return;
@@ -72,26 +76,41 @@ export const useWebContainer = ({
 
     hasStartedRef.current = true;
 
+    // Create abort controller for this run
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     const start = async () => {
       try {
         setStatus("booting");
         setError(null);
-        setTerimnalOutput("");
+        setTerminalOutput("");
 
         const appendOutput = (data: string) => {
-          setTerimnalOutput((prev) => prev + data);
+          if (!signal.aborted) {
+            setTerminalOutput((prev) => prev + data);
+          }
         };
 
         const container = await getWebContainer();
         containerRef.current = container;
 
+        if (signal.aborted) return;
+
+        // Mount files
         const fileTree = buildFileTree(files);
         await container.mount(fileTree);
 
+        if (signal.aborted) return;
+
+        // Listen for server ready
         container.on("server-ready", (_port, url) => {
-          setPreviewUrl(url);
-          setStatus("running");
+          if (!signal.aborted) {
+            setPreviewUrl(url);
+            setStatus("running");
+          }
         });
+
         setStatus("installing");
 
         // Parse install command (default: npm install)
@@ -109,6 +128,9 @@ export const useWebContainer = ({
         );
 
         const installExitCode = await installProcess.exit;
+
+        if (signal.aborted) return;
+
         if (installExitCode !== 0) {
           throw new Error(
             `${installCmd} failed with exit code ${installExitCode}`,
@@ -118,8 +140,7 @@ export const useWebContainer = ({
         // Parse dev command (default: npm run dev)
         const devCmd = settings?.devCommand || "npm run dev";
         const [devBin, ...devArgs] = devCmd.split(" ");
-
-        appendOutput(`$ ${devCmd}\n`);
+        appendOutput(`\n$ ${devCmd}\n`);
 
         const devProcess = await container.spawn(devBin, devArgs);
         devProcess.output.pipeTo(
@@ -129,16 +150,22 @@ export const useWebContainer = ({
             },
           }),
         );
-      } catch (error) {
-        setError(error instanceof Error ? error.message : "Unknown error");
-        setStatus("error");
+      } catch (err) {
+        if (!signal.aborted) {
+          setError(err instanceof Error ? err.message : "Unknown error");
+          setStatus("error");
+        }
       }
     };
 
     start();
+
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [projectId, enabled, files, settings, restartKey]);
 
-  // Sync files changes (hot-reload)
+  // Sync file changes (hot-reload)
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !files || status !== "running") return;
@@ -163,14 +190,19 @@ export const useWebContainer = ({
     }
   }, [enabled]);
 
-  // Restart the entire WebContainer process
+  // Restart: abort current processes and re-run with existing container
   const restart = useCallback(() => {
-    teardownWebContainer();
+    // Abort any running processes
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+
+    // Reset state to trigger a new run
     containerRef.current = null;
     hasStartedRef.current = false;
     setStatus("idle");
     setPreviewUrl(null);
     setError(null);
+    setTerminalOutput("");
     setRestartKey((prev) => prev + 1);
   }, []);
 
