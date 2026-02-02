@@ -98,7 +98,7 @@ export const PreviewView = ({ projectId }: { projectId: Id<"projects"> }) => {
               </div>
             )}
 
-            {previewUrl && (
+            {previewUrl && !error && (
               <iframe
                 src={previewUrl}
                 className="size-full border-0"

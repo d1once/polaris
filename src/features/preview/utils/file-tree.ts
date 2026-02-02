@@ -35,7 +35,12 @@ export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
 
       if (isLast) {
         if (file.type === "folder") {
-          current[part] = { directory: {} };
+          if (!current[part]) {
+            current[part] = { directory: {} };
+          } else if ("directory" in current[part]) {
+            // Node exists with directory - preserve it
+            current[part].directory = current[part].directory || {};
+          }
         } else if (!file.storageId && file.content !== undefined) {
           current[part] = { file: { contents: file.content } };
         }

@@ -9,7 +9,7 @@ import { useFiles } from "@/features/projects/hooks/use-files";
 
 // Singleton WebContainer instance
 let webcontainerInstance: WebContainer | null = null;
-let bootPromise: Promise<WebContainer> | null = null;
+let bootPromise: Promise<WebContainer> | undefined = undefined;
 
 const getWebContainer = async (): Promise<WebContainer> => {
   if (webcontainerInstance) {
@@ -20,8 +20,13 @@ const getWebContainer = async (): Promise<WebContainer> => {
     bootPromise = WebContainer.boot({ coep: "credentialless" });
   }
 
-  webcontainerInstance = await bootPromise;
-  return webcontainerInstance;
+  try {
+    webcontainerInstance = await bootPromise;
+    return webcontainerInstance;
+  } catch (error) {
+    bootPromise = undefined;
+    throw error;
+  }
 };
 
 const teardownWebContainer = () => {
@@ -29,7 +34,7 @@ const teardownWebContainer = () => {
     webcontainerInstance.teardown();
     webcontainerInstance = null;
   }
-  bootPromise = null;
+  bootPromise = undefined;
 };
 
 interface UseWebContainerProps {
