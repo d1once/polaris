@@ -19,8 +19,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { projectId } = requestSchema.parse(body);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = requestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request body", details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const { projectId } = parsed.data;
 
   const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
 
@@ -31,18 +44,27 @@ export async function POST(request: Request) {
     );
   }
 
+  // Update status to cancelled first (before sending event)
+  try {
+    await convex.mutation(api.system.updateExportStatus, {
+      internalKey,
+      projectId: projectId as Id<"projects">,
+      status: "cancelled",
+    });
+  } catch (error) {
+    console.error("Failed to update export status:", error);
+    return NextResponse.json(
+      { error: "Failed to cancel export" },
+      { status: 500 },
+    );
+  }
+
+  // Only send event after mutation succeeds
   const event = await inngest.send({
     name: "github/export.cancel",
     data: {
       projectId,
     },
-  });
-
-  // Update status to cancelled
-  await convex.mutation(api.system.updateExportStatus, {
-    internalKey,
-    projectId: projectId as Id<"projects">,
-    status: "cancelled",
   });
 
   return NextResponse.json({

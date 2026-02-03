@@ -12,7 +12,7 @@ const requestSchema = z.object({
 });
 
 function parseGitHubUrl(url: string) {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+  const match = url.match(/github\.com\/([^/]+)\/([^/?#]+)/);
   if (!match) {
     throw new Error("Invalid GitHub URL");
   }
@@ -27,10 +27,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { url } = requestSchema.parse(body);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
-  const { owner, repo } = parseGitHubUrl(url);
+  const parseResult = requestSchema.safeParse(body);
+  if (!parseResult.success) {
+    return NextResponse.json(
+      { error: "Invalid request", details: parseResult.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const { url } = parseResult.data;
+
+  let owner, repo;
+  try {
+    ({ owner, repo } = parseGitHubUrl(url));
+  } catch {
+    return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
+  }
 
   const client = await clerkClient();
   const tokens = await client.users.getUserOauthAccessToken(userId, "github");

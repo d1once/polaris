@@ -62,7 +62,7 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
 
   const form = useForm({
     defaultValues: {
-      repoName: project?.name?.replace(/[^a-zA-Z0-9._-]/g, "-") ?? "",
+      repoName: "",
       visibility: "private" as "public" | "private",
       description: "",
     },
@@ -83,7 +83,12 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
         toast.success("Export started...");
       } catch (error) {
         if (error instanceof HTTPError) {
-          const body = await error.response.json<{ error: string }>();
+          let body: { error?: string } | null = null;
+          try {
+            body = await error.response.json<{ error: string }>();
+          } catch {
+            // JSON parsing failed, body remains null
+          }
           if (body?.error?.includes("GitHub not connected")) {
             toast.error("GitHub account not connected", {
               action: {
@@ -100,17 +105,37 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
     },
   });
 
+  // Reset form when project loads/updates
+  React.useEffect(() => {
+    if (project?.name) {
+      form.reset({
+        repoName: project.name.replace(/[^a-zA-Z0-9._-]/g, "-"),
+        visibility: "private",
+        description: "",
+      });
+    }
+  }, [project?.name, form]);
+
   const handleCancelExport = async () => {
-    await ky.post("/api/github/export/cancel", {
-      json: { projectId },
-    });
+    try {
+      await ky.post("/api/github/export/cancel", {
+        json: { projectId },
+      });
+      toast.success("Export cancelled");
+    } catch (error) {
+      toast.error("Failed to cancel export");
+    }
   };
 
   const handleResetExport = async () => {
-    await ky.post("/api/github/export/reset", {
-      json: { projectId },
-    });
-    setOpen(false);
+    try {
+      await ky.post("/api/github/export/reset", {
+        json: { projectId },
+      });
+      setOpen(false);
+    } catch (error) {
+      toast.error("Failed to reset export status");
+    }
   };
 
   const renderContent = () => {
@@ -305,10 +330,13 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-accent/30">
+        <button
+          type="button"
+          className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-accent/30"
+        >
           {getStatusIcon()}
           <span className="text-sm">Export</span>
-        </div>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-80" align="start">
         {renderContent()}
